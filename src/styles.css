@@ -302,9 +302,17 @@ button { color: inherit; }
 .chat-input { margin: 0 12px 12px; padding: 8px; border: 1px solid #d4cec4; border-radius: 12px; background: #fbfaf7; }
 .chat-input textarea { width: 100%; padding: 3px; resize: none; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 15px; line-height: 1.45; }
 .chat-input > div { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; }
-.chat-input span { color: var(--muted); font-size: 12px; }
-.chat-input button { width: 31px; height: 31px; display: grid; place-items: center; border: 0; border-radius: 9px; color: white; background: var(--accent); cursor: pointer; }
-.chat-input button:disabled { background: #d2ccc2; cursor: default; }
+.chat-input span { min-width: 0; margin-right: 8px; color: var(--muted); font-size: 12px; }
+.chat-input span.dictation-live { color: #b7472e; font-weight: 800; }
+.chat-input span.dictation-error { color: #a43b32; }
+.chat-input-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.chat-input-actions button { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; }
+.chat-input-actions .dictation-button { border: 1px solid #d4cec4; color: var(--ink); background: white; }
+.chat-input-actions .dictation-button:hover { border-color: #f1a58f; color: var(--accent); background: #fff3ee; }
+.chat-input-actions .dictation-button.is-listening { border-color: var(--accent); color: white; background: var(--accent); box-shadow: 0 0 0 4px #fa6d4220; animation: listen-pulse 1.4s ease-in-out infinite; }
+.chat-input-actions .send-button { border: 0; color: white; background: var(--accent); }
+.chat-input-actions .send-button:disabled { background: #d2ccc2; cursor: default; }
+@keyframes listen-pulse { 50% { box-shadow: 0 0 0 7px #fa6d420c; } }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 22px; background: #1d1a16b8; backdrop-filter: blur(8px); }
 .source-modal { width: min(580px, 100%); max-height: 92vh; overflow: auto; padding: 22px; border-radius: 18px; background: var(--paper); box-shadow: 0 35px 100px #0006; }

@@ -17,11 +17,13 @@ import {
   LockKeyhole,
   MessageCircleMore,
   MessageSquarePlus,
+  Mic,
   MoreHorizontal,
   Plus,
   Search,
   Send,
   Sparkles,
+  Square,
   Trash2,
   Upload,
   X,
@@ -295,8 +297,12 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
   const [cloudHistoryReady, setCloudHistoryReady] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState("");
   const messagesRef = useRef(null);
   const cloudSaveTimer = useRef(null);
+  const recognitionRef = useRef(null);
+  const dictationStartRef = useRef("");
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
   const messages = activeConversation?.messages || [welcomeMessage];
 
@@ -345,6 +351,67 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  function stopDictation() {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+  }
+
+  function toggleDictation() {
+    if (isListening) {
+      stopDictation();
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError("Dictation is not supported in this browser. Try Safari or Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || "en-US";
+    dictationStartRef.current = prompt.trimEnd();
+    setSpeechError("");
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        transcript += event.results[index][0].transcript;
+      }
+      const separator = dictationStartRef.current && transcript ? " " : "";
+      setPrompt(`${dictationStartRef.current}${separator}${transcript}`);
+    };
+    recognition.onerror = (event) => {
+      const message = event.error === "not-allowed" || event.error === "service-not-allowed"
+        ? "Microphone access was blocked. Allow it in your browser settings and try again."
+        : event.error === "no-speech"
+          ? "I couldn’t hear anything. Tap the mic and try again."
+          : "Dictation stopped unexpectedly. Please try again.";
+      setSpeechError(message);
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      recognitionRef.current = null;
+      setSpeechError("Dictation could not start. Please try again.");
+    }
+  }
+
   function updateConversationMessages(id, nextMessagesOrUpdater) {
     setConversations((current) => current.map((conversation) => {
       if (conversation.id !== id) return conversation;
@@ -372,6 +439,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
     event.preventDefault();
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt || loading) return;
+    if (isListening) stopDictation();
     const conversationId = activeConversationId;
     const userMessage = { role: "user", content: cleanPrompt };
     const nextMessages = [...messages, userMessage];
@@ -460,8 +528,22 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
           if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendPrompt(event); }
         }} />
         <div>
-          <span>{connectedCount ? `${connectedCount} sources connected` : "Connect a source first"}</span>
-          <button type="submit" disabled={!prompt.trim() || loading || !connectedCount} aria-label="Send"><Send size={16} /></button>
+          <span className={speechError ? "dictation-error" : isListening ? "dictation-live" : ""} role="status" aria-live="polite">
+            {speechError || (isListening ? "Listening… speak naturally" : connectedCount ? `${connectedCount} sources connected` : "Connect a source first")}
+          </span>
+          <div className="chat-input-actions">
+            <button
+              className={`dictation-button ${isListening ? "is-listening" : ""}`}
+              type="button"
+              onClick={toggleDictation}
+              aria-label={isListening ? "Stop dictation" : "Start dictation"}
+              aria-pressed={isListening}
+              title={isListening ? "Stop dictation" : "Dictate message"}
+            >
+              {isListening ? <Square size={14} fill="currentColor" /> : <Mic size={17} />}
+            </button>
+            <button className="send-button" type="submit" disabled={!prompt.trim() || loading || !connectedCount} aria-label="Send"><Send size={16} /></button>
+          </div>
         </div>
       </form>
     </aside>
