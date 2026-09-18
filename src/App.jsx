@@ -19,6 +19,7 @@ import {
   MessageSquarePlus,
   Mic,
   MoreHorizontal,
+  Paperclip,
   Plus,
   Search,
   Send,
@@ -299,10 +300,13 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState("");
+  const [chatImages, setChatImages] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
   const messagesRef = useRef(null);
   const cloudSaveTimer = useRef(null);
   const recognitionRef = useRef(null);
   const dictationStartRef = useRef("");
+  const attachmentInputRef = useRef(null);
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
   const messages = activeConversation?.messages || [welcomeMessage];
 
@@ -432,19 +436,53 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
     setConversations((current) => [conversation, ...current]);
     setActiveConversationId(conversation.id);
     setPrompt("");
+    setChatImages([]);
+    setAttachmentError("");
     setShowHistory(false);
+  }
+
+  async function addChatImages(event) {
+    const files = [...(event.target.files || [])];
+    event.target.value = "";
+    if (!files.length) return;
+
+    const availableSlots = Math.max(0, 3 - chatImages.length);
+    if (!availableSlots) {
+      setAttachmentError("You can attach up to 3 screenshots to one message.");
+      return;
+    }
+
+    const selected = files.slice(0, availableSlots);
+    setAttachmentError(files.length > availableSlots ? "Only the first 3 screenshots were added." : "");
+    try {
+      const images = await Promise.all(selected.map(async (file) => ({
+        id: crypto.randomUUID(),
+        name: file.name || "Screenshot",
+        dataUrl: await compressImage(file),
+      })));
+      setChatImages((current) => [...current, ...images].slice(0, 3));
+    } catch {
+      setAttachmentError("One of those images could not be read. Try a PNG, JPG, or WebP screenshot.");
+    }
   }
 
   async function sendPrompt(event) {
     event.preventDefault();
     const cleanPrompt = prompt.trim();
-    if (!cleanPrompt || loading) return;
+    if ((!cleanPrompt && !chatImages.length) || loading) return;
     if (isListening) stopDictation();
     const conversationId = activeConversationId;
-    const userMessage = { role: "user", content: cleanPrompt };
+    const attachedImages = chatImages;
+    const userMessage = {
+      role: "user",
+      content: cleanPrompt || "Please look at the attached screenshot.",
+      images: attachedImages,
+    };
     const nextMessages = [...messages, userMessage];
     updateConversationMessages(conversationId, nextMessages);
     setPrompt("");
+    setChatImages([]);
+    setAttachmentError("");
     setLoading(true);
 
     try {
@@ -454,8 +492,9 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
         headers: { "Content-Type": "application/json", "x-content-hub-key": accessSecret },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          history: nextMessages.slice(-8),
+          history: messages.slice(-8).map(({ images: _images, ...message }) => message),
           sources: selectedItems.map(({ image, ...source }) => source),
+          images: attachedImages,
         }),
       });
       const data = await response.json();
@@ -513,7 +552,14 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
         {messages.map((message, index) => (
           <div key={`${message.role}-${index}`} className={`message ${message.role} ${message.error ? "error" : ""}`}>
             {message.role === "assistant" && <div className="mini-avatar"><Bot size={13} /></div>}
-            <div>{message.content}</div>
+            <div>
+              {message.images?.length > 0 && (
+                <div className="message-images">
+                  {message.images.map((image) => <img key={image.id || image.dataUrl} src={image.dataUrl} alt={image.name || "Attached screenshot"} />)}
+                </div>
+              )}
+              {message.content}
+            </div>
           </div>
         ))}
         {loading && <div className="message assistant"><div className="mini-avatar"><Bot size={13} /></div><div className="thinking"><i /><i /><i /></div></div>}
@@ -524,14 +570,34 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
         ))}
       </div>
       <form className="chat-input" onSubmit={sendPrompt}>
+        {chatImages.length > 0 && (
+          <div className="chat-attachments" aria-label="Attached screenshots">
+            {chatImages.map((image) => (
+              <div key={image.id}>
+                <img src={image.dataUrl} alt={image.name} />
+                <button type="button" onClick={() => setChatImages((current) => current.filter((item) => item.id !== image.id))} aria-label={`Remove ${image.name}`}><X size={13} /></button>
+              </div>
+            ))}
+          </div>
+        )}
         <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Ask for a post, script, hooks…" rows="3" onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendPrompt(event); }
         }} />
         <div>
-          <span className={speechError ? "dictation-error" : isListening ? "dictation-live" : ""} role="status" aria-live="polite">
-            {speechError || (isListening ? "Listening… speak naturally" : connectedCount ? `${connectedCount} sources connected` : "Connect a source first")}
+          <span className={speechError || attachmentError ? "dictation-error" : isListening ? "dictation-live" : ""} role="status" aria-live="polite">
+            {attachmentError || speechError || (isListening ? "Listening… speak naturally" : connectedCount ? `${connectedCount} sources connected` : "Connect a source first")}
           </span>
           <div className="chat-input-actions">
+            <input ref={attachmentInputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple onChange={addChatImages} />
+            <button
+              className="attachment-button"
+              type="button"
+              onClick={() => attachmentInputRef.current?.click()}
+              aria-label="Attach screenshots"
+              title="Attach screenshots"
+            >
+              <Paperclip size={17} />
+            </button>
             <button
               className={`dictation-button ${isListening ? "is-listening" : ""}`}
               type="button"
@@ -542,7 +608,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
             >
               {isListening ? <Square size={14} fill="currentColor" /> : <Mic size={17} />}
             </button>
-            <button className="send-button" type="submit" disabled={!prompt.trim() || loading || !connectedCount} aria-label="Send"><Send size={16} /></button>
+            <button className="send-button" type="submit" disabled={(!prompt.trim() && !chatImages.length) || loading || !connectedCount} aria-label="Send"><Send size={16} /></button>
           </div>
         </div>
       </form>

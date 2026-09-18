@@ -25,6 +25,7 @@ html { overflow-x: hidden; background: var(--canvas); }
 body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: hidden; }
 button, input, textarea { font: inherit; }
 button { color: inherit; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
 .app-shell { min-height: 100vh; background: var(--canvas); }
 .topbar {
@@ -291,6 +292,8 @@ button { color: inherit; }
 .message.user { justify-content: flex-end; }
 .message.user > div:last-child { color: white; border-radius: 12px 5px 12px 12px; background: #37332e; }
 .message.error > div:last-child { color: #a43b32; background: #feeae6; }
+.message-images { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin-bottom: 9px; }
+.message-images img { width: 100%; max-height: 220px; display: block; object-fit: cover; border-radius: 8px; }
 .mini-avatar { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 7px; color: white; background: #8e76bb; }
 .thinking { display: flex; gap: 4px; align-items: center; height: 34px; }
 .thinking i { width: 5px; height: 5px; border-radius: 50%; background: #8d867b; animation: pulse 1s infinite alternate; }
@@ -300,6 +303,10 @@ button { color: inherit; }
 .quick-prompts { display: flex; gap: 5px; overflow-x: auto; padding: 0 12px 8px; }
 .quick-prompts button { flex: 0 0 auto; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
 .chat-input { margin: 0 12px 12px; padding: 8px; border: 1px solid #d4cec4; border-radius: 12px; background: #fbfaf7; }
+.chat-attachments { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 7px; margin: 0 0 8px !important; }
+.chat-attachments > div { position: relative; width: 58px; height: 58px; }
+.chat-attachments img { width: 100%; height: 100%; display: block; object-fit: cover; border: 1px solid var(--line); border-radius: 9px; }
+.chat-attachments button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 2px solid #fbfaf7; border-radius: 50%; color: white; background: #37332e; cursor: pointer; }
 .chat-input textarea { width: 100%; padding: 3px; resize: none; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 15px; line-height: 1.45; }
 .chat-input > div { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; }
 .chat-input span { min-width: 0; margin-right: 8px; color: var(--muted); font-size: 12px; }
@@ -307,8 +314,8 @@ button { color: inherit; }
 .chat-input span.dictation-error { color: #a43b32; }
 .chat-input-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
 .chat-input-actions button { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; }
-.chat-input-actions .dictation-button { border: 1px solid #d4cec4; color: var(--ink); background: white; }
-.chat-input-actions .dictation-button:hover { border-color: #f1a58f; color: var(--accent); background: #fff3ee; }
+.chat-input-actions .dictation-button, .chat-input-actions .attachment-button { border: 1px solid #d4cec4; color: var(--ink); background: white; }
+.chat-input-actions .dictation-button:hover, .chat-input-actions .attachment-button:hover { border-color: #f1a58f; color: var(--accent); background: #fff3ee; }
 .chat-input-actions .dictation-button.is-listening { border-color: var(--accent); color: white; background: var(--accent); box-shadow: 0 0 0 4px #fa6d4220; animation: listen-pulse 1.4s ease-in-out infinite; }
 .chat-input-actions .send-button { border: 0; color: white; background: var(--accent); }
 .chat-input-actions .send-button:disabled { background: #d2ccc2; cursor: default; }

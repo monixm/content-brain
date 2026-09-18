@@ -40,11 +40,14 @@ export default async (request) => {
   }
 
   try {
-    const { prompt, history = [], sources = [] } = await request.json();
-    if (!prompt?.trim()) return Response.json({ error: "Write a request first." }, { status: 400 });
+    const { prompt, history = [], sources = [], images = [] } = await request.json();
+    if (!prompt?.trim() && !images.length) return Response.json({ error: "Write a request or attach a screenshot first." }, { status: 400 });
 
     const transcript = history.slice(-8).map((message) => `${message.role.toUpperCase()}: ${message.content}`).join("\n\n");
-    const input = `CONNECTED KNOWLEDGE\n\n${sourceContext(sources)}\n\nRECENT CONVERSATION\n\n${transcript}\n\nCURRENT REQUEST\n\n${prompt}`;
+    const inputText = `CONNECTED KNOWLEDGE\n\n${sourceContext(sources)}\n\nRECENT CONVERSATION\n\n${transcript}\n\nCURRENT REQUEST\n\n${prompt || "Please analyze the attached screenshot."}`;
+    const validImages = images
+      .filter((image) => typeof image?.dataUrl === "string" && image.dataUrl.startsWith("data:image/"))
+      .slice(0, 3);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -54,7 +57,13 @@ export default async (request) => {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
         instructions: "You are Content Brain, a sharp personal content strategist and writer focused by default on growing the user's Instagram and LinkedIn presence. Use the connected knowledge as source material. My Business supplies factual positioning and audience context. My Voice contains evolving tone preferences and desired phrasing; it does not require past published content. Expert Brain supplies methods and quality standards. Ideas & Inspiration supplies hooks, captions, concepts, structures, visuals, CTAs, and creative direction but must never be copied closely. Pay special attention to the elements the user explicitly marked as liking. When sources conflict, prioritize My Business for facts and My Voice for tone. Never invent business facts. Produce practical, polished content and respond directly to revision requests. Keep the user's requested platform, format, and length.",
-        input,
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: inputText },
+            ...validImages.map((image) => ({ type: "input_image", image_url: image.dataUrl, detail: "auto" })),
+          ],
+        }],
         max_output_tokens: 2200,
         store: false,
       }),
