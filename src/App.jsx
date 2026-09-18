@@ -463,9 +463,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
     setShowHistory(false);
   }
 
-  async function addChatImages(event) {
-    const files = [...(event.target.files || [])];
-    event.target.value = "";
+  async function queueChatImages(files) {
     if (!files.length) return;
 
     const availableSlots = Math.max(0, 3 - chatImages.length);
@@ -486,6 +484,22 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
     } catch {
       setAttachmentError("One of those images could not be read. Try a PNG, JPG, or WebP screenshot.");
     }
+  }
+
+  function addChatImages(event) {
+    const files = [...(event.target.files || [])];
+    event.target.value = "";
+    queueChatImages(files);
+  }
+
+  function pasteChatImages(event) {
+    const files = [...(event.clipboardData?.items || [])]
+      .filter((clipboardItem) => clipboardItem.type.startsWith("image/"))
+      .map((clipboardItem) => clipboardItem.getAsFile())
+      .filter(Boolean);
+    if (!files.length) return;
+    event.preventDefault();
+    queueChatImages(files);
   }
 
   async function sendPrompt(event) {
@@ -509,13 +523,21 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
 
     try {
       const selectedItems = items.filter((item) => connectedZones[item.zone]);
+      let includedSourceImages = 0;
+      const chatSources = selectedItems.map(({ image, ...source }) => {
+        if (image && includedSourceImages < 8) {
+          includedSourceImages += 1;
+          return { ...source, image };
+        }
+        return source;
+      });
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-content-hub-key": accessSecret },
         body: JSON.stringify({
           prompt: cleanPrompt,
           history: messages.slice(-8).map(({ images: _images, ...message }) => message),
-          sources: selectedItems.map(({ image, ...source }) => source),
+          sources: chatSources,
           images: attachedImages,
         }),
       });
@@ -591,7 +613,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
           <button key={suggestion} type="button" onClick={() => setPrompt(suggestion)}>{suggestion}</button>
         ))}
       </div>
-      <form className="chat-input" onSubmit={sendPrompt}>
+      <form className="chat-input" onSubmit={sendPrompt} onPaste={pasteChatImages}>
         {chatImages.length > 0 && (
           <div className="chat-attachments" aria-label="Attached screenshots">
             {chatImages.map((image) => (

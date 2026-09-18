@@ -18,6 +18,7 @@ function sourceContext(sources) {
     source.content ? `CONTENT: ${source.content}` : "",
     source.tags?.length ? `TAGS: ${source.tags.join(", ")}` : "",
     source.takeaways?.length ? `ELEMENTS THE USER LIKES: ${source.takeaways.join(", ")}` : "",
+    source.image ? `REFERENCE IMAGE: attached below as image for source [${index + 1}]` : "",
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 
@@ -48,6 +49,11 @@ export default async (request) => {
     const validImages = images
       .filter((image) => typeof image?.dataUrl === "string" && image.dataUrl.startsWith("data:image/"))
       .slice(0, 3);
+    const sourceImages = sources
+      .slice(0, 80)
+      .map((source, index) => ({ source, index }))
+      .filter(({ source }) => typeof source?.image === "string" && source.image.startsWith("data:image/"))
+      .slice(0, 8);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -61,7 +67,14 @@ export default async (request) => {
           role: "user",
           content: [
             { type: "input_text", text: inputText },
-            ...validImages.map((image) => ({ type: "input_image", image_url: image.dataUrl, detail: "auto" })),
+            ...validImages.flatMap((image, index) => [
+              { type: "input_text", text: `CURRENT MESSAGE SCREENSHOT ${index + 1}: ${image.name || "Screenshot"}` },
+              { type: "input_image", image_url: image.dataUrl, detail: "auto" },
+            ]),
+            ...sourceImages.flatMap(({ source, index }) => [
+              { type: "input_text", text: `CONNECTED REFERENCE IMAGE FOR SOURCE [${index + 1}]: ${source.title}` },
+              { type: "input_image", image_url: source.image, detail: "auto" },
+            ]),
           ],
         }],
         max_output_tokens: 2200,
