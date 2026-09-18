@@ -187,18 +187,34 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
   const [image, setImage] = useState(item?.image || "");
   const [takeaways, setTakeaways] = useState(item?.takeaways || []);
   const [processing, setProcessing] = useState(false);
+  const [imageError, setImageError] = useState("");
 
-  async function handleImage(event) {
-    const file = event.target.files?.[0];
+  async function useImageFile(file, pasted = false) {
     if (!file) return;
     setProcessing(true);
+    setImageError("");
     try {
       setImage(await compressImage(file));
       setType("image");
-      if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
+      if (!title) setTitle(pasted ? "Pasted screenshot" : file.name.replace(/\.[^.]+$/, ""));
+    } catch {
+      setImageError("That image could not be read. Try copying it again or upload a PNG, JPG, or WebP file.");
     } finally {
       setProcessing(false);
     }
+  }
+
+  function handleImage(event) {
+    useImageFile(event.target.files?.[0]);
+  }
+
+  function handlePaste(event) {
+    const imageFile = [...(event.clipboardData?.items || [])]
+      .find((clipboardItem) => clipboardItem.type.startsWith("image/"))
+      ?.getAsFile();
+    if (!imageFile) return;
+    event.preventDefault();
+    useImageFile(imageFile, true);
   }
 
   function submit(event) {
@@ -222,7 +238,7 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <form className="source-modal" onSubmit={submit}>
+      <form className="source-modal" onSubmit={submit} onPaste={handlePaste}>
         <header>
           <div>
             <span className="eyebrow">{item ? "Edit source" : `Add to ${zone.title}`}</span>
@@ -237,6 +253,10 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
             return <button key={option.id} type="button" className={type === option.id ? "active" : ""} onClick={() => setType(option.id)}><Icon size={15} />{option.label}</button>;
           })}
         </div>
+
+        {zone.id === "expert" && (
+          <div className="paste-hint"><ImageIcon size={15} /><span>Copy a screenshot, then press <kbd>⌘V</kbd> or <kbd>Ctrl+V</kbd> anywhere in this window.</span></div>
+        )}
 
         <label className="field">
           <span>Title</span>
@@ -265,9 +285,11 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
         {type === "image" && (
           <label className={`image-drop ${image ? "has-image" : ""}`}>
             <input type="file" accept="image/*" onChange={handleImage} />
-            {image ? <img src={image} alt="Screenshot preview" /> : <><Upload size={22} /><strong>{processing ? "Preparing image…" : "Choose a screenshot"}</strong><span>JPG, PNG, or WebP</span></>}
+            {image ? <img src={image} alt="Screenshot preview" /> : <><Upload size={22} /><strong>{processing ? "Preparing image…" : "Upload or paste a screenshot"}</strong><span>JPG, PNG, WebP, or ⌘V / Ctrl+V</span></>}
           </label>
         )}
+
+        {imageError && <p className="image-error" role="alert">{imageError}</p>}
 
         <label className="field">
           <span>{type === "image" ? "What do you like about it?" : "Notes or content"}</span>
