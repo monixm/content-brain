@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ArrowRight,
   BarChart3,
@@ -791,13 +793,20 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
         {messages.map((message, index) => (
           <div key={`${message.role}-${index}`} className={`message ${message.role} ${message.error ? "error" : ""}`}>
             {message.role === "assistant" && <div className="mini-avatar"><Bot size={13} /></div>}
-            <div>
+            <div className="message-content">
               {message.images?.length > 0 && (
                 <div className="message-images">
                   {message.images.map((image) => <img key={image.id || image.dataUrl} src={image.dataUrl} alt={image.name || "Attached screenshot"} />)}
                 </div>
               )}
-              {message.content}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           </div>
         ))}
