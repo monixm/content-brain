@@ -19,7 +19,7 @@ function sourceContext(sources) {
     source.content ? `CONTENT: ${source.content}` : "",
     source.tags?.length ? `TAGS: ${source.tags.join(", ")}` : "",
     source.takeaways?.length ? `ELEMENTS THE USER LIKES: ${source.takeaways.join(", ")}` : "",
-    source.image ? `REFERENCE IMAGE: attached below as image for source [${index + 1}]` : "",
+    source.images?.length ? `REFERENCE IMAGES: ${source.images.length} attached below for source [${index + 1}]` : source.image ? `REFERENCE IMAGE: attached below as image for source [${index + 1}]` : "",
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 
@@ -52,8 +52,11 @@ export default async (request) => {
       .slice(0, 3);
     const sourceImages = sources
       .slice(0, 80)
-      .map((source, index) => ({ source, index }))
-      .filter(({ source }) => typeof source?.image === "string" && source.image.startsWith("data:image/"))
+      .flatMap((source, index) => {
+        const images = Array.isArray(source?.images) && source.images.length ? source.images : source?.image ? [source.image] : [];
+        return images.map((image, imageIndex) => ({ source, index, image, imageIndex }));
+      })
+      .filter(({ image }) => typeof image === "string" && image.startsWith("data:image/"))
       .slice(0, 8);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -72,9 +75,9 @@ export default async (request) => {
               { type: "input_text", text: `CURRENT MESSAGE SCREENSHOT ${index + 1}: ${image.name || "Screenshot"}` },
               { type: "input_image", image_url: image.dataUrl, detail: "auto" },
             ]),
-            ...sourceImages.flatMap(({ source, index }) => [
-              { type: "input_text", text: `CONNECTED REFERENCE IMAGE FOR SOURCE [${index + 1}]: ${source.title}` },
-              { type: "input_image", image_url: source.image, detail: "auto" },
+            ...sourceImages.flatMap(({ source, index, image, imageIndex }) => [
+              { type: "input_text", text: `CONNECTED REFERENCE IMAGE ${imageIndex + 1} FOR SOURCE [${index + 1}]: ${source.title}` },
+              { type: "input_image", image_url: image, detail: "auto" },
             ]),
           ],
         }],

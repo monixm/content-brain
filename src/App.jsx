@@ -47,6 +47,7 @@ const localKey = "content-brain-items-v1";
 const accessKey = "content-brain-access-key";
 const conversationKey = "content-brain-conversations-v1";
 const pageKey = "content-brain-active-page-v1";
+const resultDraftPrefix = "content-brain-result-draft-v1";
 const inspirationOptions = ["Hook", "Caption", "Content idea", "Structure", "Visual", "CTA", "Tone"];
 const welcomeMessage = { role: "assistant", content: "I’m ready to turn your connected sources into content. What do you want to create?" };
 
@@ -100,6 +101,18 @@ function readLocalConversations() {
   }
 
   return [createConversation()];
+}
+
+function resultDraftKey(id) {
+  return `${resultDraftPrefix}:${id || "new"}`;
+}
+
+function readResultDraft(id) {
+  try {
+    return JSON.parse(localStorage.getItem(resultDraftKey(id)) || "null");
+  } catch {
+    return null;
+  }
 }
 
 async function compressImage(file) {
@@ -327,47 +340,97 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
 }
 
 function ResultModal({ item, onClose, onSave, onDelete }) {
-  const [title, setTitle] = useState(item?.title || "");
-  const [platform, setPlatform] = useState(item?.platform || "LinkedIn");
-  const [url, setUrl] = useState(item?.url || "");
-  const [pillar, setPillar] = useState(item?.pillar || "Practical automation");
-  const [format, setFormat] = useState(item?.format || "Text post");
-  const [reach, setReach] = useState(item?.metrics?.reach || "");
-  const [comments, setComments] = useState(item?.metrics?.comments || "");
-  const [saves, setSaves] = useState(item?.metrics?.saves || "");
-  const [shares, setShares] = useState(item?.metrics?.shares || "");
-  const [enquiries, setEnquiries] = useState(item?.metrics?.enquiries || "");
-  const [notes, setNotes] = useState(item?.content || "");
-  const [image, setImage] = useState(item?.image || "");
+  const storedDraft = useMemo(() => readResultDraft(item?.id), [item?.id]);
+  const initial = storedDraft || item || {};
+  const [title, setTitle] = useState(initial.title || "");
+  const [platform, setPlatform] = useState(initial.platform || "LinkedIn");
+  const [url, setUrl] = useState(initial.url || "");
+  const [pillar, setPillar] = useState(initial.pillar || "Practical automation");
+  const [format, setFormat] = useState(initial.format || "Text post");
+  const [reach, setReach] = useState(initial.metrics?.reach || "");
+  const [comments, setComments] = useState(initial.metrics?.comments || "");
+  const [saves, setSaves] = useState(initial.metrics?.saves || "");
+  const [shares, setShares] = useState(initial.metrics?.shares || "");
+  const [enquiries, setEnquiries] = useState(initial.metrics?.enquiries || "");
+  const [notes, setNotes] = useState(initial.content || "");
+  const [images, setImages] = useState(() => initial.images?.length ? initial.images : initial.image ? [initial.image] : []);
   const [processing, setProcessing] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const [draftStatus, setDraftStatus] = useState(storedDraft ? "Draft restored" : "Draft saves automatically");
+  const draftTimer = useRef(null);
 
-  async function useImageFile(file) {
-    if (!file) return;
+  const draft = useMemo(() => ({
+    id: item?.id || null,
+    title,
+    platform,
+    url,
+    pillar,
+    format,
+    metrics: { reach, comments, saves, shares, enquiries },
+    content: notes,
+    images,
+    savedAt: Date.now(),
+  }), [item?.id, title, platform, url, pillar, format, reach, comments, saves, shares, enquiries, notes, images]);
+
+  const hasDraftContent = Boolean(title.trim() || url.trim() || notes.trim() || reach || comments || saves || shares || enquiries || images.length);
+
+  useEffect(() => {
+    clearTimeout(draftTimer.current);
+    if (!hasDraftContent) {
+      localStorage.removeItem(resultDraftKey(item?.id));
+      setDraftStatus("Draft saves automatically");
+      return undefined;
+    }
+    setDraftStatus("Saving draft…");
+    draftTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(resultDraftKey(item?.id), JSON.stringify(draft));
+        setDraftStatus("Draft saved");
+      } catch {
+        setDraftStatus("Draft is too large to save locally—keep this window open");
+      }
+    }, 350);
+    return () => clearTimeout(draftTimer.current);
+  }, [draft, hasDraftContent, item?.id]);
+
+  async function queueImages(files) {
+    const availableSlots = Math.max(0, 6 - images.length);
+    if (!availableSlots) {
+      setImageError("You can add up to 6 screenshots to one result.");
+      return;
+    }
+    const selected = files.slice(0, availableSlots);
     setProcessing(true);
+    setImageError(files.length > availableSlots ? "Only the first 6 screenshots were added." : "");
     try {
-      setImage(await compressImage(file));
+      const compressed = await Promise.all(selected.map((file) => compressImage(file)));
+      setImages((current) => [...current, ...compressed].slice(0, 6));
+    } catch {
+      setImageError("One of those screenshots could not be read. Try a PNG, JPG, or WebP file.");
     } finally {
       setProcessing(false);
     }
   }
 
   function handlePaste(event) {
-    const imageFile = [...(event.clipboardData?.items || [])]
-      .find((clipboardItem) => clipboardItem.type.startsWith("image/"))
-      ?.getAsFile();
-    if (!imageFile) return;
+    const imageFiles = [...(event.clipboardData?.items || [])]
+      .filter((clipboardItem) => clipboardItem.type.startsWith("image/"))
+      .map((clipboardItem) => clipboardItem.getAsFile())
+      .filter(Boolean);
+    if (!imageFiles.length) return;
     event.preventDefault();
-    useImageFile(imageFile);
+    queueImages(imageFiles);
   }
 
   function submit(event) {
     event.preventDefault();
     const now = Date.now();
+    localStorage.removeItem(resultDraftKey(item?.id));
     onSave({
       ...item,
       id: item?.id || crypto.randomUUID(),
       zone: "results",
-      type: image ? "image" : "note",
+      type: images.length ? "image" : "note",
       title: title.trim(),
       content: notes.trim(),
       url: url.trim(),
@@ -376,19 +439,37 @@ function ResultModal({ item, onClose, onSave, onDelete }) {
       format,
       metrics: { reach, comments, saves, shares, enquiries },
       tags: [platform, pillar, format],
-      image,
+      image: images[0] || "",
+      images,
       starter: false,
       createdAt: item?.createdAt || now,
       updatedAt: now,
     });
   }
 
+  function closeWithDraft() {
+    clearTimeout(draftTimer.current);
+    if (hasDraftContent) {
+      try {
+        localStorage.setItem(resultDraftKey(item?.id), JSON.stringify(draft));
+      } catch {
+        // The visible warning already tells the user to keep the window open when storage is full.
+      }
+    }
+    onClose();
+  }
+
+  function deleteResult() {
+    localStorage.removeItem(resultDraftKey(item?.id));
+    onDelete(item.id);
+  }
+
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="modal-backdrop" role="presentation">
       <form className="source-modal result-modal" onSubmit={submit} onPaste={handlePaste}>
         <header>
-          <div><span className="eyebrow">Results</span><h2>{item ? "Update published post" : "Add a published post"}</h2></div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={19} /></button>
+          <div><span className="eyebrow">Results</span><h2>{item ? "Update published post" : "Add a published post"}</h2><small className={`result-draft-status ${draftStatus.includes("too large") ? "error" : ""}`}><Check size={13} />{draftStatus}</small></div>
+          <button className="icon-button" type="button" onClick={closeWithDraft} aria-label="Save draft and close"><X size={19} /></button>
         </header>
         <div className="result-form-grid">
           <label className="field result-title-field"><span>Post title or hook</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What was the post about?" required autoFocus /></label>
@@ -406,13 +487,17 @@ function ResultModal({ item, onClose, onSave, onDelete }) {
           <label><span>Enquiries</span><input inputMode="numeric" value={enquiries} onChange={(event) => setEnquiries(event.target.value)} placeholder="0" /></label>
         </fieldset>
         <label className="field"><span>What did you notice?</span><textarea rows="4" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Who responded? What surprised you? Did it start a useful conversation?" /></label>
-        <label className={`analytics-drop ${image ? "has-image" : ""}`}>
-          <input type="file" accept="image/*" onChange={(event) => useImageFile(event.target.files?.[0])} />
-          {image ? <img src={image} alt="Analytics screenshot" /> : <><ImageIcon size={20} /><strong>{processing ? "Preparing screenshot…" : "Paste or upload an analytics screenshot"}</strong><span>Keep the original numbers together with your notes</span></>}
-        </label>
+        <div className="analytics-section">
+          <div className="analytics-heading"><div><strong>Analytics screenshots</strong><span>Add up to 6 screenshots from LinkedIn or Instagram.</span></div><small>{images.length} of 6</small></div>
+          <div className="analytics-grid">
+            {images.map((image, index) => <div className="analytics-preview" key={`${image.slice(-24)}-${index}`}><img src={image} alt={`Analytics screenshot ${index + 1}`} /><button type="button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))} aria-label={`Remove screenshot ${index + 1}`}><X size={14} /></button></div>)}
+            {images.length < 6 && <label className="analytics-drop"><input type="file" accept="image/*" multiple onChange={(event) => { const files = [...(event.target.files || [])]; event.target.value = ""; queueImages(files); }} /><ImageIcon size={20} /><strong>{processing ? "Preparing screenshots…" : images.length ? "Add more screenshots" : "Paste or upload screenshots"}</strong><span>PNG, JPG, WebP, or ⌘V / Ctrl+V</span></label>}
+          </div>
+          {imageError && <p className="image-error" role="alert">{imageError}</p>}
+        </div>
         <footer>
-          {item ? <button className="delete-button" type="button" onClick={() => onDelete(item.id)}><Trash2 size={15} />Delete</button> : <span />}
-          <div><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit">Save result</button></div>
+          {item ? <button className="delete-button" type="button" onClick={deleteResult}><Trash2 size={15} />Delete</button> : <span />}
+          <div><button className="button secondary" type="button" onClick={closeWithDraft}>{hasDraftContent ? "Save draft & close" : "Close"}</button><button className="button primary" type="submit">Save result</button></div>
         </footer>
       </form>
     </div>
@@ -634,12 +719,12 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
     try {
       const selectedItems = items.filter((item) => connectedZones[item.zone] || (mode === "review" && item.zone === "results"));
       let includedSourceImages = 0;
-      const chatSources = selectedItems.map(({ image, ...source }) => {
-        if (image && includedSourceImages < 8) {
-          includedSourceImages += 1;
-          return { ...source, image };
-        }
-        return source;
+      const chatSources = selectedItems.map(({ image, images, ...source }) => {
+        const sourceImages = Array.isArray(images) && images.length ? images : image ? [image] : [];
+        const availableSlots = Math.max(0, 8 - includedSourceImages);
+        const includedImages = sourceImages.slice(0, availableSlots);
+        includedSourceImages += includedImages.length;
+        return includedImages.length ? { ...source, images: includedImages } : source;
       });
       const response = await fetch("/api/chat", {
         method: "POST",
