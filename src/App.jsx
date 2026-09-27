@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  BarChart3,
   Bot,
   BrainCircuit,
+  BriefcaseBusiness,
+  CalendarRange,
   CalendarClock,
   Check,
   ChevronDown,
+  Compass,
   ExternalLink,
   Eye,
   EyeOff,
   FileText,
   History,
   Image as ImageIcon,
+  Images,
+  LayoutDashboard,
+  Library,
+  Lightbulb,
   Link2,
   LoaderCircle,
   LockKeyhole,
@@ -20,13 +28,17 @@ import {
   Mic,
   MoreHorizontal,
   Paperclip,
+  PenLine,
   Plus,
+  ScanSearch,
   Search,
   Send,
   Sparkles,
   Square,
+  TrendingUp,
   Trash2,
   Upload,
+  WandSparkles,
   X,
 } from "lucide-react";
 import { starterItems, zones } from "./data";
@@ -34,6 +46,7 @@ import { starterItems, zones } from "./data";
 const localKey = "content-brain-items-v1";
 const accessKey = "content-brain-access-key";
 const conversationKey = "content-brain-conversations-v1";
+const pageKey = "content-brain-active-page-v1";
 const inspirationOptions = ["Hook", "Caption", "Content idea", "Structure", "Visual", "CTA", "Tone"];
 const welcomeMessage = { role: "assistant", content: "I’m ready to turn your connected sources into content. What do you want to create?" };
 
@@ -313,7 +326,100 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
   );
 }
 
-function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
+function ResultModal({ item, onClose, onSave, onDelete }) {
+  const [title, setTitle] = useState(item?.title || "");
+  const [platform, setPlatform] = useState(item?.platform || "LinkedIn");
+  const [url, setUrl] = useState(item?.url || "");
+  const [pillar, setPillar] = useState(item?.pillar || "Practical automation");
+  const [format, setFormat] = useState(item?.format || "Text post");
+  const [reach, setReach] = useState(item?.metrics?.reach || "");
+  const [comments, setComments] = useState(item?.metrics?.comments || "");
+  const [saves, setSaves] = useState(item?.metrics?.saves || "");
+  const [shares, setShares] = useState(item?.metrics?.shares || "");
+  const [enquiries, setEnquiries] = useState(item?.metrics?.enquiries || "");
+  const [notes, setNotes] = useState(item?.content || "");
+  const [image, setImage] = useState(item?.image || "");
+  const [processing, setProcessing] = useState(false);
+
+  async function useImageFile(file) {
+    if (!file) return;
+    setProcessing(true);
+    try {
+      setImage(await compressImage(file));
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  function handlePaste(event) {
+    const imageFile = [...(event.clipboardData?.items || [])]
+      .find((clipboardItem) => clipboardItem.type.startsWith("image/"))
+      ?.getAsFile();
+    if (!imageFile) return;
+    event.preventDefault();
+    useImageFile(imageFile);
+  }
+
+  function submit(event) {
+    event.preventDefault();
+    const now = Date.now();
+    onSave({
+      ...item,
+      id: item?.id || crypto.randomUUID(),
+      zone: "results",
+      type: image ? "image" : "note",
+      title: title.trim(),
+      content: notes.trim(),
+      url: url.trim(),
+      platform,
+      pillar,
+      format,
+      metrics: { reach, comments, saves, shares, enquiries },
+      tags: [platform, pillar, format],
+      image,
+      starter: false,
+      createdAt: item?.createdAt || now,
+      updatedAt: now,
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <form className="source-modal result-modal" onSubmit={submit} onPaste={handlePaste}>
+        <header>
+          <div><span className="eyebrow">Results</span><h2>{item ? "Update published post" : "Add a published post"}</h2></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={19} /></button>
+        </header>
+        <div className="result-form-grid">
+          <label className="field result-title-field"><span>Post title or hook</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What was the post about?" required autoFocus /></label>
+          <label className="field"><span>Platform</span><select value={platform} onChange={(event) => setPlatform(event.target.value)}><option>LinkedIn</option><option>Instagram</option></select></label>
+          <label className="field"><span>Format</span><select value={format} onChange={(event) => setFormat(event.target.value)}><option>Text post</option><option>Carousel</option><option>Reel / video</option><option>Image post</option><option>Story</option></select></label>
+          <label className="field"><span>Content pillar</span><select value={pillar} onChange={(event) => setPillar(event.target.value)}><option>Practical automation</option><option>Building Moniré</option><option>Digital systems</option><option>Founder + mother</option></select></label>
+          <label className="field"><span>Post URL <em>optional</em></span><input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://…" /></label>
+        </div>
+        <fieldset className="metric-fields">
+          <legend>Performance after about 7 days</legend>
+          <label><span>Reach / views</span><input inputMode="numeric" value={reach} onChange={(event) => setReach(event.target.value)} placeholder="0" /></label>
+          <label><span>Comments</span><input inputMode="numeric" value={comments} onChange={(event) => setComments(event.target.value)} placeholder="0" /></label>
+          <label><span>Saves</span><input inputMode="numeric" value={saves} onChange={(event) => setSaves(event.target.value)} placeholder="0" /></label>
+          <label><span>Shares / sends</span><input inputMode="numeric" value={shares} onChange={(event) => setShares(event.target.value)} placeholder="0" /></label>
+          <label><span>Enquiries</span><input inputMode="numeric" value={enquiries} onChange={(event) => setEnquiries(event.target.value)} placeholder="0" /></label>
+        </fieldset>
+        <label className="field"><span>What did you notice?</span><textarea rows="4" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Who responded? What surprised you? Did it start a useful conversation?" /></label>
+        <label className={`analytics-drop ${image ? "has-image" : ""}`}>
+          <input type="file" accept="image/*" onChange={(event) => useImageFile(event.target.files?.[0])} />
+          {image ? <img src={image} alt="Analytics screenshot" /> : <><ImageIcon size={20} /><strong>{processing ? "Preparing screenshot…" : "Paste or upload an analytics screenshot"}</strong><span>Keep the original numbers together with your notes</span></>}
+        </label>
+        <footer>
+          {item ? <button className="delete-button" type="button" onClick={() => onDelete(item.id)}><Trash2 size={15} />Delete</button> : <span />}
+          <div><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit">Save result</button></div>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ChatStudio({ connectedZones, items, accessSecret, focus = false, initialPrompt = "", mode = "create" }) {
   const [conversations, setConversations] = useState(readLocalConversations);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [showHistory, setShowHistory] = useState(false);
@@ -378,6 +484,10 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
   }, [messages, loading]);
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  useEffect(() => {
+    if (initialPrompt) setPrompt(initialPrompt);
+  }, [initialPrompt]);
 
   function stopDictation() {
     recognitionRef.current?.stop();
@@ -609,7 +719,14 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false }) {
         {loading && <div className="message assistant"><div className="mini-avatar"><Bot size={13} /></div><div className="thinking"><i /><i /><i /></div></div>}
       </div>
       <div className="quick-prompts">
-        {["Give me 10 hooks", "Write a short video", "Match my voice"].map((suggestion) => (
+        {(mode === "strategy"
+          ? ["Clarify what I should be known for", "Review my content pillars", "Plan my next 2 weeks"]
+          : mode === "ideas"
+            ? ["Find ideas in my work", "Evaluate my latest idea", "Give me 10 useful angles"]
+            : mode === "review"
+              ? ["Analyze these results", "What should I repeat?", "Plan my next experiment"]
+              : ["Give me 10 hooks", "Write a LinkedIn post", "Create an Instagram carousel"]
+        ).map((suggestion) => (
           <button key={suggestion} type="button" onClick={() => setPrompt(suggestion)}>{suggestion}</button>
         ))}
       </div>
@@ -700,19 +817,26 @@ function LockScreen({ onUnlock, error, checking }) {
 }
 
 export default function App() {
-  const [accessSecret, setAccessSecret] = useState(() => sessionStorage.getItem(accessKey) || "");
-  const [authStatus, setAuthStatus] = useState(() => sessionStorage.getItem(accessKey) ? "checking" : "locked");
+  const [accessSecret, setAccessSecret] = useState(() => import.meta.env.DEV ? "" : sessionStorage.getItem(accessKey) || "");
+  const [authStatus, setAuthStatus] = useState(() => import.meta.env.DEV ? "unlocked" : sessionStorage.getItem(accessKey) ? "checking" : "locked");
   const [authError, setAuthError] = useState("");
   const [items, setItems] = useState(readLocalItems);
   const [connectedZones, setConnectedZones] = useState({ business: true, voice: true, expert: true, inspiration: true });
   const [activeModal, setActiveModal] = useState(null);
   const [search, setSearch] = useState("");
   const [syncState, setSyncState] = useState("local");
-  const [view, setView] = useState("canvas");
+  const [view, setView] = useState(() => localStorage.getItem(pageKey) || "today");
+  const [studioMode, setStudioMode] = useState("create");
+  const [studioPrompt, setStudioPrompt] = useState("");
 
   useEffect(() => {
     localStorage.setItem(localKey, JSON.stringify(items));
   }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem(pageKey, view);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view]);
 
   useEffect(() => {
     if (!accessSecret || authStatus !== "checking") return;
@@ -790,119 +914,151 @@ export default function App() {
 
   if (authStatus !== "unlocked") return <LockScreen onUnlock={unlock} error={authError} checking={authStatus === "checking"} />;
 
+  const navigation = [
+    { id: "today", label: "Today", description: "Choose your next action", icon: LayoutDashboard },
+    { id: "strategy", label: "Strategy", description: "Set your direction and goals", icon: Compass },
+    { id: "ideas", label: "Ideas", description: "Capture and evaluate thoughts", icon: Lightbulb },
+    { id: "create", label: "Create", description: "Turn an idea into a post", icon: PenLine },
+    { id: "results", label: "Results", description: "See what worked and why", icon: BarChart3 },
+    { id: "brain", label: "My Brain", description: "Store background knowledge", icon: Library },
+  ];
+  const results = filteredItems.filter((item) => item.zone === "results");
+  const ideas = filteredItems.filter((item) => item.zone === "inspiration" && !item.starter);
+  const businessItems = filteredItems.filter((item) => item.zone === "business" && !item.starter);
+
+  function openStudio(mode, prompt = "") {
+    setStudioMode(mode);
+    setStudioPrompt(prompt ? `${prompt} ` : "");
+    setView("create");
+  }
+
+  function renderPageHeader(eyebrow, title, description, action = null) {
+    return (
+      <header className="page-header">
+        <div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
+        {action}
+      </header>
+    );
+  }
+
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand"><span><Sparkles size={16} /></span><strong>Content Brain</strong></div>
-        <div className="workspace-name"><span>Workspace</span><strong>My Content Studio</strong><ChevronDown size={14} /></div>
-        <label className="global-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your brain…" /></label>
+    <div className="app-shell workflow-shell">
+      <aside className="main-sidebar">
+        <div className="sidebar-brand"><span><BrainCircuit size={19} /></span><strong>Content Brain</strong></div>
+        <nav className="workflow-nav" aria-label="Main navigation">
+          {navigation.map(({ id, label, description, icon: Icon }) => (
+            <button key={id} className={view === id ? "active" : ""} type="button" onClick={() => setView(id)}>
+              <Icon size={18} />
+              <span><strong>{label}</strong><small>{description}</small></span>
+              {id === "ideas" && ideas.length > 0 && <b>{ideas.length}</b>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-focus"><Sparkles size={16} /><span><strong>Your focus</strong><small>Practical AI for growing businesses</small></span></div>
+        <button className="sidebar-capture" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={17} />Quick capture</button>
+      </aside>
+
+      <header className="app-topbar">
+        <div className="mobile-brand"><span><BrainCircuit size={17} /></span><strong>Content Brain</strong></div>
+        <label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your brain…" /></label>
         <div className={`sync-state sync-${syncState}`}>
           {syncState === "syncing" ? <LoaderCircle className="spin" size={13} /> : <span />}
           {syncState === "cloud" ? "Saved to cloud" : syncState === "syncing" ? "Saving" : "Saved locally"}
         </div>
+        <button className="mobile-brain-button" type="button" onClick={() => setView("brain")} aria-label="Open My Brain"><Library size={18} /></button>
       </header>
 
-      <nav className="side-rail" aria-label="Main navigation">
-        <div className="rail-mark"><Sparkles size={17} /></div>
-        <button className={view === "canvas" ? "active" : ""} type="button" aria-label="Knowledge canvas" onClick={() => setView("canvas")}><BrainCircuit size={19} /></button>
-        <button className={view === "studio" ? "active" : ""} type="button" aria-label="Writing studio" onClick={() => setView("studio")}><MessageCircleMore size={19} /></button>
-        <div className="rail-spacer" />
-        <button className="profile-button" type="button" aria-label="Profile">MM</button>
-      </nav>
+      <main className="workflow-main">
+        {view === "today" && <section className="workflow-page">
+          {renderPageHeader("Monika's content system", "What do you want to do today?", "Start with an outcome. Content Brain will bring in the right context for you.", <div className="page-actions"><button className="button secondary" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={16} />Capture something</button></div>)}
+          <div className="action-grid">
+            <button className="action-card featured" type="button" onClick={() => openStudio("strategy", "Help me plan a realistic two-week content plan for Instagram and LinkedIn based on my strategy and saved ideas.")}><span><CalendarRange size={21} /></span><div><strong>Plan my next 2 weeks</strong><small>Build a realistic mix for Instagram and LinkedIn.</small></div><ArrowRight size={16} /></button>
+            <button className="action-card" type="button" onClick={() => openStudio("ideas", "Help me evaluate this content idea. Ask me for the idea first, then tell me whether to develop, change, or dismiss it.")}><span><ScanSearch size={21} /></span><div><strong>Evaluate an idea</strong><small>Decide whether it is worth posting, changing, or dropping.</small></div><ArrowRight size={16} /></button>
+            <button className="action-card" type="button" onClick={() => openStudio("create", "Help me choose one saved idea and turn it into a finished social media post.")}><span><WandSparkles size={21} /></span><div><strong>Turn an idea into a post</strong><small>Develop it for LinkedIn, Instagram, or both.</small></div><ArrowRight size={16} /></button>
+            <button className="action-card" type="button" onClick={() => setView("results")}><span><TrendingUp size={21} /></span><div><strong>Review what worked</strong><small>Learn from results and choose your next experiment.</small></div><ArrowRight size={16} /></button>
+          </div>
+
+          <div className="today-grid">
+            <section className="surface pipeline-panel">
+              <div className="surface-heading"><div><span className="section-kicker">This week</span><h2>Your content pipeline</h2><p>Move from a rough thought to a published post without losing the idea.</p></div><button className="text-button" type="button" onClick={() => setView("ideas")}>View all <ArrowRight size={14} /></button></div>
+              <div className="pipeline-columns">
+                <div className="pipeline-column"><header><span>Ideas to decide</span><b>{ideas.length}</b></header>{ideas.slice(0, 2).map((item) => <button className="pipeline-item" type="button" key={item.id} onClick={() => setActiveModal({ zone: zones[3], item })}><span className="platform-badge both">Idea</span><strong>{item.title}</strong><small>{item.content || "Open the idea to add your notes."}</small></button>)}{ideas.length === 0 && <button className="pipeline-empty" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={16} />Capture your first idea</button>}</div>
+                <div className="pipeline-column"><header><span>Ready to create</span><b>—</b></header><button className="pipeline-empty" type="button" onClick={() => openStudio("create", "Help me choose a saved idea that is ready to turn into a post.")}><PenLine size={16} />Choose an idea with AI</button></div>
+                <div className="pipeline-column"><header><span>Published</span><b>{results.length}</b></header>{results.slice(0, 2).map((item) => <button className="pipeline-item published" type="button" key={item.id} onClick={() => setActiveModal({ result: item })}><span className={`platform-badge ${item.platform?.toLowerCase()}`}>{item.platform || "Post"}</span><strong>{item.title}</strong><small>{item.metrics?.comments || 0} comments · {item.metrics?.saves || 0} saves</small></button>)}{results.length === 0 && <button className="pipeline-empty" type="button" onClick={() => setActiveModal({ result: null, kind: "result" })}><Plus size={16} />Log your first post</button>}</div>
+              </div>
+            </section>
+
+            <aside className="surface strategy-summary">
+              <div className="surface-heading"><div><span className="section-kicker">Your compass</span><h2>Current strategy</h2><p>The direction used to judge ideas and shape posts.</p></div><button className="icon-button" type="button" onClick={() => setView("strategy")} aria-label="Open strategy"><ArrowRight size={16} /></button></div>
+              <div className="north-star"><span>North star</span><p>Show growing businesses how practical AI can remove repetitive work—and build trust in Moniré.</p></div>
+              <div className="strategy-focus"><span>Current series</span><strong>Where businesses lose time</strong><div><i /></div><small>Start with one practical business example.</small></div>
+              <div className="pillar-pills"><span>Practical automation</span><span>Building Moniré</span><span>Digital systems</span><span>Founder + mother</span></div>
+              <button className="button soft" type="button" onClick={() => openStudio("strategy", "Help me refine my personal brand and content strategy based on what you know about me and Moniré.")}><MessageCircleMore size={16} />Refine my strategy</button>
+            </aside>
+          </div>
+
+          <aside className="posting-rhythm compact-posting-rhythm" aria-label="Best posting times">
+            <div className="posting-rhythm-heading"><span><CalendarClock size={18} /></span><div><strong>Posting rhythm</strong><small>Starting times to test · Switzerland</small></div></div>
+            <div className="posting-slot"><span>LinkedIn</span><strong>Tuesday · 11:30</strong><small>Test Tue–Thu around lunchtime</small></div>
+            <div className="posting-slot"><span>Instagram</span><strong>Wednesday · 18:00</strong><small>Test afternoon and early evening</small></div>
+            <p>Your own results should replace generic “best times.”</p>
+          </aside>
+        </section>}
+
+        {view === "strategy" && <section className="workflow-page">
+          {renderPageHeader("Strategy", "Your brand compass", "Define what you want to be known for, who you want to reach, and the themes your content should return to.", <button className="button primary" type="button" onClick={() => openStudio("strategy", "Guide me through a strategy check-in. Ask one question at a time and save the useful conclusions.")}><MessageCircleMore size={16} />Start strategy session</button>)}
+          <div className="strategy-grid">
+            <section className="surface position-card"><span className="section-kicker">Positioning</span><h2>What you want to be known for</h2><p className="statement">Practical, flexible AI automations and digital systems that give growing businesses their time back.</p><button className="text-button" type="button" onClick={() => setActiveModal({ zone: zones[0] })}><Plus size={14} />Add or refine a business note</button></section>
+            <section className="surface audience-card"><span className="section-kicker">Who you help</span><h2>Your ideal client</h2><p>Value-aware founders and decision-makers who want to remove repetitive work, trust expertise, and invest in solutions that genuinely improve how their business runs.</p></section>
+            <section className="surface pillars-card"><div className="surface-heading"><div><span className="section-kicker">Content pillars</span><h2>Four reliable places to find ideas</h2><p>Use these as prompts—not rigid boxes.</p></div></div><div className="pillar-grid"><article><b>01</b><strong>Practical automation</strong><span>Spot manual work and show realistic improvements.</span></article><article><b>02</b><strong>Building Moniré</strong><span>Decisions, doubts, experiments, and progress.</span></article><article><b>03</b><strong>Digital systems</strong><span>Websites, dashboards, and better processes.</span></article><article><b>04</b><strong>Life behind the work</strong><span>Motherhood, ambition, balance, and building in Switzerland.</span></article></div></section>
+            <section className="surface business-notes"><div className="surface-heading"><div><span className="section-kicker">Saved context</span><h2>Your business notes</h2><p>Facts and decisions the AI should remember.</p></div><button className="text-button" type="button" onClick={() => setActiveModal({ zone: zones[0] })}><Plus size={14} />Add note</button></div><div className="compact-source-grid">{businessItems.slice(0, 4).map((item) => <SourceCard key={item.id} item={item} onEdit={(selected) => setActiveModal({ zone: zones[0], item: selected })} />)}{businessItems.length === 0 && <button className="empty-state" type="button" onClick={() => setActiveModal({ zone: zones[0] })}><BriefcaseBusiness size={22} /><strong>Add your first business note</strong><span>Save your offer, audience, story, or positioning.</span></button>}</div></section>
+          </div>
+        </section>}
+
+        {view === "ideas" && <section className="workflow-page">
+          {renderPageHeader("Idea inbox", "Capture first. Decide later.", "Save rough thoughts, screenshots, hooks, captions, links, and voice notes—then decide what is worth developing.", <button className="button primary" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={16} />New idea</button>)}
+          <button className="idea-capture" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><span><ImageIcon size={23} /></span><div><strong>Paste, upload, dictate, or type anything</strong><small>Capture the thought now. You can organize and evaluate it later.</small></div><div className="capture-types"><span>Screenshot</span><span>Link</span><span>Text</span></div></button>
+          <div className="idea-toolbar"><strong>{ideas.length} saved {ideas.length === 1 ? "idea" : "ideas"}</strong><button className="text-button" type="button" onClick={() => openStudio("ideas", "Review my saved ideas and help me decide which one is most strategically useful to develop next.")}><Sparkles size={14} />Evaluate with AI</button></div>
+          <div className="idea-grid">{ideas.map((item) => <article className="idea-card" key={item.id}><div className="idea-card-top"><span>{item.type === "image" ? <ImageIcon size={14} /> : item.type === "link" ? <Link2 size={14} /> : <FileText size={14} />}{item.type}</span><button className="icon-button" type="button" onClick={() => setActiveModal({ zone: zones[3], item })} aria-label={`Edit ${item.title}`}><MoreHorizontal size={16} /></button></div>{item.image && <img src={item.image} alt="" />}<h2>{item.title}</h2><p>{item.content || "Open this idea to add what caught your attention."}</p>{item.takeaways?.length > 0 && <div className="pillar-pills">{item.takeaways.map((value) => <span key={value}>{value}</span>)}</div>}<footer><span>{item.tags?.[0] || "Unsorted idea"}</span><button type="button" onClick={() => openStudio("create", `Help me develop this saved idea into a post: ${item.title}.`)}>Develop <ArrowRight size={14} /></button></footer></article>)}{ideas.length === 0 && <button className="empty-state large" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Lightbulb size={28} /><strong>Your idea inbox is ready</strong><span>Add a rough thought, screenshot, hook, caption, or example you want to learn from.</span></button>}</div>
+        </section>}
+
+        {view === "create" && <section className="workflow-page create-page">
+          {renderPageHeader("Guided studio", studioMode === "strategy" ? "Sharpen your content direction." : studioMode === "ideas" ? "Find and evaluate useful ideas." : studioMode === "review" ? "Work out what actually resonated." : "Turn one idea into a finished post.", "Use a guided conversation instead of staring at a blank page.")}
+          <div className="studio-mode-tabs" role="tablist" aria-label="Studio mode">
+            {[{ id: "strategy", label: "Strategize", icon: Compass }, { id: "ideas", label: "Get ideas", icon: Lightbulb }, { id: "create", label: "Create a post", icon: PenLine }, { id: "review", label: "Review results", icon: BarChart3 }].map(({ id, label, icon: Icon }) => <button key={id} className={studioMode === id ? "active" : ""} type="button" onClick={() => { setStudioMode(id); setStudioPrompt(""); }}><Icon size={16} />{label}</button>)}
+          </div>
+          <div className="studio-layout redesigned-studio-layout">
+            <aside className="studio-context">
+              <div className="studio-context-heading"><span>Use in this session</span><strong>{Object.values(connectedZones).filter(Boolean).length} active</strong></div>
+              <p className="context-description">Choose which background knowledge the AI should use for this conversation.</p>
+              {zones.map((zone) => {
+                const zoneItems = items.filter((item) => item.zone === zone.id);
+                return <button key={zone.id} type="button" className={`studio-context-card zone-${zone.color} ${connectedZones[zone.id] ? "active" : ""}`} onClick={() => setConnectedZones((current) => ({ ...current, [zone.id]: !current[zone.id] }))} aria-pressed={connectedZones[zone.id]}><span className="zone-number">{zone.step}</span><span><strong>{zone.title}</strong><small>{zone.description}</small><em>{zoneItems.length} {zoneItems.length === 1 ? "source" : "sources"}</em></span><span className="context-check">{connectedZones[zone.id] ? <Check size={13} /> : null}</span></button>;
+              })}
+              <button className="button secondary studio-add" type="button" onClick={() => { setView("brain"); setActiveModal({ zone: zones[0] }); }}><Plus size={15} />Add knowledge</button>
+            </aside>
+            <ChatStudio focus connectedZones={connectedZones} items={items} accessSecret={accessSecret} mode={studioMode} initialPrompt={studioPrompt} />
+          </div>
+        </section>}
+
+        {view === "results" && <section className="workflow-page">
+          {renderPageHeader("Results", "Learn what resonates—not just what gets likes.", "Log published posts, meaningful reactions, and business outcomes so Content Brain can spot useful patterns.", <button className="button primary" type="button" onClick={() => setActiveModal({ result: null, kind: "result" })}><Plus size={16} />Add published post</button>)}
+          <div className="results-guide"><div><span>1</span><p><strong>Publish</strong><small>Post on LinkedIn or Instagram.</small></p></div><ArrowRight size={15} /><div><span>2</span><p><strong>Wait about 7 days</strong><small>Give the post time to travel.</small></p></div><ArrowRight size={15} /><div><span>3</span><p><strong>Add a screenshot</strong><small>Record metrics and what you noticed.</small></p></div><ArrowRight size={15} /><div><span>4</span><p><strong>Review the pattern</strong><small>Choose one thing to repeat or test.</small></p></div></div>
+          {results.length > 0 ? <div className="results-layout"><section className="surface results-list"><div className="surface-heading"><div><span className="section-kicker">Performance log</span><h2>Your published posts</h2><p>Compare posts only after giving them a similar amount of time.</p></div></div>{results.map((item) => <button className="result-row" type="button" key={item.id} onClick={() => setActiveModal({ result: item })}><span className={`platform-badge ${item.platform?.toLowerCase()}`}>{item.platform || "Post"}</span><span className="result-title"><strong>{item.title}</strong><small>{item.format || "Post"} · {item.pillar || "Uncategorized"}</small></span><span><b>{item.metrics?.reach || "—"}</b><small>Reach</small></span><span><b>{item.metrics?.comments || "—"}</b><small>Comments</small></span><span><b>{item.metrics?.saves || "—"}</b><small>Saves</small></span><span><b>{item.metrics?.enquiries || "—"}</b><small>Enquiries</small></span><ArrowRight size={15} /></button>)}</section><aside className="surface learning-panel"><span className="section-kicker">Review with AI</span><h2>Find the signal behind the numbers</h2><p>Ask Content Brain to compare your hooks, topics, formats, and qualitative reactions—then suggest one sensible next experiment.</p><button className="button soft" type="button" onClick={() => openStudio("review", "Review my logged post results. Identify the strongest useful pattern, mention the sample size, and recommend one next experiment.")}><Sparkles size={16} />Analyze my results</button></aside></div> : <button className="empty-state results-empty" type="button" onClick={() => setActiveModal({ result: null, kind: "result" })}><BarChart3 size={30} /><strong>Add your first published post</strong><span>Paste the link, record its metrics after about seven days, and note any meaningful conversations or enquiries.</span><em>Add published post <ArrowRight size={14} /></em></button>}
+        </section>}
+
+        {view === "brain" && <section className="workflow-page">
+          {renderPageHeader("My Brain", "Your background knowledge", "Store the facts, preferences, expertise, and inspiration that quietly support every strategy session and draft.", <button className="button primary" type="button" onClick={() => setActiveModal({ zone: zones[0] })}><Plus size={16} />Add knowledge</button>)}
+          <div className="brain-intro"><BrainCircuit size={19} /><p><strong>You do not need to manage this every day.</strong><span>Update it when your business, voice, knowledge, or preferences change. Content Brain will use connected areas automatically in the studio.</span></p></div>
+          <div className="knowledge-grid brain-grid">{zones.map((zone) => <KnowledgeZone key={zone.id} zone={zone} items={filteredItems.filter((item) => item.zone === zone.id)} connected={connectedZones[zone.id]} onToggle={() => setConnectedZones((current) => ({ ...current, [zone.id]: !current[zone.id] }))} onAdd={() => setActiveModal({ zone })} onEdit={(item) => setActiveModal({ zone, item })} />)}</div>
+        </section>}
+      </main>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        <button className={view === "canvas" ? "active" : ""} type="button" onClick={() => setView("canvas")}><BrainCircuit size={18} /><span>Canvas</span></button>
-        <button className={view === "studio" ? "active" : ""} type="button" onClick={() => setView("studio")}><MessageCircleMore size={18} /><span>Studio</span></button>
-        <button type="button" onClick={() => { setView("canvas"); setActiveModal({ zone: zones[3] }); }}><Plus size={18} /><span>Capture</span></button>
+        {[navigation[0], navigation[1], navigation[2], navigation[3], navigation[4]].map(({ id, label, icon: Icon }) => <button key={id} className={view === id ? "active" : ""} type="button" onClick={() => setView(id)}><Icon size={19} /><span>{label}</span></button>)}
       </nav>
 
-      {view === "canvas" ? <main className="canvas">
-        <div className="canvas-intro">
-          <div>
-            <span className="eyebrow">Knowledge canvas</span>
-            <h1>Teach your AI how you think.</h1>
-            <p>Everything you connect becomes context for your writing studio.</p>
-          </div>
-          <div className="canvas-actions">
-            <button className="button secondary" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={15} />Quick capture</button>
-            <button className="button primary" type="button" onClick={() => setView("studio")}><MessageCircleMore size={15} />Open studio</button>
-          </div>
-        </div>
-
-        <aside className="posting-rhythm" aria-label="Best posting times">
-          <div className="posting-rhythm-heading">
-            <span><CalendarClock size={18} /></span>
-            <div>
-              <strong>Best posting times</strong>
-              <small>Switzerland time</small>
-            </div>
-          </div>
-          <div className="posting-slot">
-            <span>LinkedIn</span>
-            <strong>Tuesday · 11:30</strong>
-            <small>Best window: Tue–Thu, 11:00–17:00</small>
-          </div>
-          <div className="posting-slot">
-            <span>Instagram</span>
-            <strong>Wednesday · 18:00</strong>
-            <small>Best window: Tue afternoon or Wed 12:00–21:00</small>
-          </div>
-          <p>One core idea, adapted for both platforms.</p>
-        </aside>
-
-        <div className="workspace-layout">
-          <div className="knowledge-grid">
-            {zones.map((zone) => (
-              <KnowledgeZone
-                key={zone.id}
-                zone={zone}
-                items={filteredItems.filter((item) => item.zone === zone.id)}
-                connected={connectedZones[zone.id]}
-                onToggle={() => setConnectedZones((current) => ({ ...current, [zone.id]: !current[zone.id] }))}
-                onAdd={() => setActiveModal({ zone })}
-                onEdit={(item) => setActiveModal({ zone, item })}
-              />
-            ))}
-          </div>
-        </div>
-      </main> : <main className="studio-page">
-        <div className="studio-intro">
-          <div>
-            <span className="eyebrow">Writing studio</span>
-            <h1>Create with your whole brain.</h1>
-            <p>Choose the knowledge areas that should shape this conversation.</p>
-          </div>
-          <button className="button secondary" type="button" onClick={() => setView("canvas")}><BrainCircuit size={15} />Back to canvas</button>
-        </div>
-        <div className="studio-layout">
-          <aside className="studio-context">
-            <div className="studio-context-heading">
-              <span>Connected knowledge</span>
-              <strong>{Object.values(connectedZones).filter(Boolean).length} of 4 active</strong>
-            </div>
-            {zones.map((zone) => {
-              const zoneItems = items.filter((item) => item.zone === zone.id);
-              return (
-                <button
-                  key={zone.id}
-                  type="button"
-                  className={`studio-context-card zone-${zone.color} ${connectedZones[zone.id] ? "active" : ""}`}
-                  onClick={() => setConnectedZones((current) => ({ ...current, [zone.id]: !current[zone.id] }))}
-                  aria-pressed={connectedZones[zone.id]}
-                >
-                  <span className="zone-number">{zone.step}</span>
-                  <span><strong>{zone.title}</strong><small>{zoneItems.length} {zoneItems.length === 1 ? "source" : "sources"}</small></span>
-                  <span className="context-check">{connectedZones[zone.id] ? <Check size={13} /> : null}</span>
-                </button>
-              );
-            })}
-            <button className="button secondary studio-add" type="button" onClick={() => { setView("canvas"); setActiveModal({ zone: zones[0] }); }}><Plus size={15} />Add knowledge</button>
-          </aside>
-          <ChatStudio focus connectedZones={connectedZones} items={items} accessSecret={accessSecret} />
-        </div>
-      </main>}
-
-      {activeModal && (
+      {activeModal?.zone && (
         <SourceModal
           zone={activeModal.zone}
           item={activeModal.item}
@@ -911,6 +1067,7 @@ export default function App() {
           onDelete={deleteItem}
         />
       )}
+      {activeModal && (activeModal.kind === "result" || Object.prototype.hasOwnProperty.call(activeModal, "result")) && <ResultModal item={activeModal.result} onClose={() => setActiveModal(null)} onSave={persistItem} onDelete={deleteItem} />}
     </div>
   );
 }
