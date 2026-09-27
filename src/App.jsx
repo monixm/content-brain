@@ -632,7 +632,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
     setLoading(true);
 
     try {
-      const selectedItems = items.filter((item) => connectedZones[item.zone]);
+      const selectedItems = items.filter((item) => connectedZones[item.zone] || (mode === "review" && item.zone === "results"));
       let includedSourceImages = 0;
       const chatSources = selectedItems.map(({ image, ...source }) => {
         if (image && includedSourceImages < 8) {
