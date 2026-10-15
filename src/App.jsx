@@ -2,47 +2,48 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  ArrowRight,
-  BarChart3,
-  Bot,
-  BrainCircuit,
-  BriefcaseBusiness,
-  CalendarRange,
-  CalendarClock,
-  Check,
-  ChevronDown,
-  Compass,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  FileText,
-  History,
-  Image as ImageIcon,
-  Images,
-  LayoutDashboard,
-  Library,
-  Lightbulb,
-  Link2,
-  LoaderCircle,
-  LockKeyhole,
-  MessageCircleMore,
-  MessageSquarePlus,
-  Mic,
-  MoreHorizontal,
-  Paperclip,
-  PenLine,
-  Plus,
-  ScanSearch,
-  Search,
-  Send,
-  Sparkles,
-  Square,
-  TrendingUp,
-  Trash2,
-  Upload,
-  WandSparkles,
-  X,
-} from "lucide-react";
+  ArrowRightIcon as ArrowRight,
+  ChartBarIcon as BarChart3,
+  ChatCircleDotsIcon as Bot,
+  NotebookIcon as BrainCircuit,
+  BriefcaseIcon as BriefcaseBusiness,
+  CalendarDotsIcon as CalendarRange,
+  CalendarBlankIcon as CalendarClock,
+  CheckIcon as Check,
+  CaretDownIcon as ChevronDown,
+  CompassIcon as Compass,
+  ArrowSquareOutIcon as ExternalLink,
+  EyeIcon as Eye,
+  EyeSlashIcon as EyeOff,
+  FileTextIcon as FileText,
+  ClockCounterClockwiseIcon as History,
+  ImageIcon as ImageIcon,
+  ImagesIcon as Images,
+  SquaresFourIcon as LayoutDashboard,
+  TrayIcon as Library,
+  LightbulbFilamentIcon as Lightbulb,
+  LinkIcon as Link2,
+  CircleNotchIcon as LoaderCircle,
+  LockKeyIcon as LockKeyhole,
+  ChatCircleDotsIcon as MessageCircleMore,
+  ChatCircleTextIcon as MessageSquarePlus,
+  MicrophoneIcon as Mic,
+  DotsThreeIcon as MoreHorizontal,
+  PaperclipIcon as Paperclip,
+  PencilSimpleLineIcon as PenLine,
+  PlusIcon as Plus,
+  MagnifyingGlassPlusIcon as ScanSearch,
+  MagnifyingGlassIcon as Search,
+  PaperPlaneTiltIcon as Send,
+  MagicWandIcon as Sparkles,
+  SquareIcon as Square,
+  TrendUpIcon as TrendingUp,
+  TrashIcon as Trash2,
+  UploadSimpleIcon as Upload,
+  MagicWandIcon as WandSparkles,
+  XIcon as X
+} from "@phosphor-icons/react";
+import ContentLibrary, { PerformanceSummary } from "./ContentLibrary";
 import { starterItems, zones } from "./data";
 
 const localKey = "content-brain-items-v1";
@@ -214,6 +215,7 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
   const [type, setType] = useState(item?.type || "note");
   const [image, setImage] = useState(item?.image || "");
   const [takeaways, setTakeaways] = useState(item?.takeaways || []);
+  const [details, setDetails] = useState({ topic: item?.topic || '', platform: item?.platform || '', hook: item?.hook || '', status: item?.status || 'Idea', draft: item?.draft || '' });
   const [processing, setProcessing] = useState(false);
   const [imageError, setImageError] = useState("");
 
@@ -256,6 +258,7 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
       url: url.trim(),
       tags: tags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean),
       takeaways,
+      ...details,
       type,
       image,
       starter: false,
@@ -272,7 +275,7 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
             <span className="eyebrow">{item ? "Edit source" : `Add to ${zone.title}`}</span>
             <h2>{item ? item.title : "Capture something useful"}</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X size={19} /></button>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X weight="regular" size={19} /></button>
         </header>
 
         <div className="type-tabs">
@@ -291,6 +294,15 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What should you remember this as?" required autoFocus />
         </label>
 
+        {zone.id === "inspiration" && <div className="idea-detail-fields">
+          <div className="result-form-grid">
+            <label className="field"><span>Topic</span><input value={details.topic} onChange={e => setDetails({...details, topic: e.target.value})} placeholder="e.g. Building my business"/></label>
+            <label className="field"><span>Channel</span><select value={details.platform} onChange={e => setDetails({...details, platform: e.target.value})}><option value="">Choose later</option>{['LinkedIn','Instagram','Newsletter','TikTok','Other'].map(c => <option key={c}>{c}</option>)}</select></label>
+            <label className="field"><span>Status</span><select value={details.status} onChange={e => setDetails({...details, status: e.target.value})}>{['Idea','Draft','Ready'].map(c => <option key={c}>{c}</option>)}</select></label>
+          </div>
+          <label className="field"><span>Hook</span><textarea rows="2" value={details.hook} onChange={e => setDetails({...details, hook: e.target.value})} placeholder="The opening line that makes someone stop…"/></label>
+          <label className="field"><span>Draft copy</span><textarea rows="6" value={details.draft} onChange={e => setDetails({...details, draft: e.target.value})} placeholder="Develop your post here, or save a response from the writing assistant."/></label>
+        </div>}
         {zone.id === "inspiration" && (
           <fieldset className="takeaway-picker">
             <legend>What caught your attention?</legend>
@@ -320,7 +332,7 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
         {imageError && <p className="image-error" role="alert">{imageError}</p>}
 
         <label className="field">
-          <span>{type === "image" ? "What do you like about it?" : "Notes or content"}</span>
+          <span>{zone.id === "inspiration" ? "Description / original thought" : type === "image" ? "What do you like about it?" : "Notes or content"}</span>
           <textarea rows="6" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste the text, transcript, hook, idea, or the reason this is useful…" />
         </label>
 
@@ -330,10 +342,10 @@ function SourceModal({ zone, item, onClose, onSave, onDelete }) {
         </label>
 
         <footer>
-          {item ? <button className="delete-button" type="button" onClick={() => onDelete(item.id)}><Trash2 size={15} />Delete</button> : <span />}
+          {item?.id ? <button className="delete-button" type="button" onClick={() => onDelete(item.id)}><Trash2 size={15} />Delete</button> : <span />}
           <div>
             <button className="button secondary" type="button" onClick={onClose}>Cancel</button>
-            <button className="button primary" type="submit">Save source</button>
+            <button className="button primary" type="submit">{zone.id === "inspiration" ? "Save idea" : "Save source"}</button>
           </div>
         </footer>
       </form>
@@ -471,7 +483,7 @@ function ResultModal({ item, onClose, onSave, onDelete }) {
       <form className="source-modal result-modal" onSubmit={submit} onPaste={handlePaste}>
         <header>
           <div><span className="eyebrow">Results</span><h2>{item ? "Update published post" : "Add a published post"}</h2><small className={`result-draft-status ${draftStatus.includes("too large") ? "error" : ""}`}><Check size={13} />{draftStatus}</small></div>
-          <button className="icon-button" type="button" onClick={closeWithDraft} aria-label="Save draft and close"><X size={19} /></button>
+          <button className="icon-button" type="button" onClick={closeWithDraft} aria-label="Save draft and close"><X weight="regular" size={19} /></button>
         </header>
         <div className="result-form-grid">
           <label className="field result-title-field"><span>Post title or hook</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What was the post about?" required autoFocus /></label>
@@ -488,17 +500,17 @@ function ResultModal({ item, onClose, onSave, onDelete }) {
           <label><span>Shares / sends</span><input inputMode="numeric" value={shares} onChange={(event) => setShares(event.target.value)} placeholder="0" /></label>
           <label><span>Enquiries</span><input inputMode="numeric" value={enquiries} onChange={(event) => setEnquiries(event.target.value)} placeholder="0" /></label>
         </fieldset>
-        <label className="field"><span>What did you notice?</span><textarea rows="4" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Who responded? What surprised you? Did it start a useful conversation?" /></label>
+        <label className="field"><span>Post copy & observations</span><textarea rows="4" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Paste the full published post so the assistant can learn from your writing. Add observations below it." /></label>
         <div className="analytics-section">
           <div className="analytics-heading"><div><strong>Analytics screenshots</strong><span>Add up to 6 screenshots from LinkedIn or Instagram.</span></div><small>{images.length} of 6</small></div>
           <div className="analytics-grid">
-            {images.map((image, index) => <div className="analytics-preview" key={`${image.slice(-24)}-${index}`}><img src={image} alt={`Analytics screenshot ${index + 1}`} /><button type="button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))} aria-label={`Remove screenshot ${index + 1}`}><X size={14} /></button></div>)}
+            {images.map((image, index) => <div className="analytics-preview" key={`${image.slice(-24)}-${index}`}><img src={image} alt={`Analytics screenshot ${index + 1}`} /><button type="button" onClick={() => setImages((current) => current.filter((_, imageIndex) => imageIndex !== index))} aria-label={`Remove screenshot ${index + 1}`}><X weight="regular" size={14} /></button></div>)}
             {images.length < 6 && <label className="analytics-drop"><input type="file" accept="image/*" multiple onChange={(event) => { const files = [...(event.target.files || [])]; event.target.value = ""; queueImages(files); }} /><ImageIcon size={20} /><strong>{processing ? "Preparing screenshots…" : images.length ? "Add more screenshots" : "Paste or upload screenshots"}</strong><span>PNG, JPG, WebP, or ⌘V / Ctrl+V</span></label>}
           </div>
           {imageError && <p className="image-error" role="alert">{imageError}</p>}
         </div>
         <footer>
-          {item ? <button className="delete-button" type="button" onClick={deleteResult}><Trash2 size={15} />Delete</button> : <span />}
+          {item?.id ? <button className="delete-button" type="button" onClick={deleteResult}><Trash2 size={15} />Delete</button> : <span />}
           <div><button className="button secondary" type="button" onClick={closeWithDraft}>{hasDraftContent ? "Save draft & close" : "Close"}</button><button className="button primary" type="submit">Save result</button></div>
         </footer>
       </form>
@@ -506,7 +518,7 @@ function ResultModal({ item, onClose, onSave, onDelete }) {
   );
 }
 
-function ChatStudio({ connectedZones, items, accessSecret, focus = false, initialPrompt = "", mode = "create" }) {
+function ChatStudio({ connectedZones, items, accessSecret, focus = false, initialPrompt = "", mode = "create", onSaveResponse }) {
   const [conversations, setConversations] = useState(readLocalConversations);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [showHistory, setShowHistory] = useState(false);
@@ -719,7 +731,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
     setLoading(true);
 
     try {
-      const selectedItems = items.filter((item) => connectedZones[item.zone] || (mode === "review" && item.zone === "results"));
+      const selectedItems = items.filter((item) => connectedZones[item.zone] || item.zone === "results");
       let includedSourceImages = 0;
       const chatSources = selectedItems.map(({ image, images, ...source }) => {
         const sourceImages = Array.isArray(images) && images.length ? images : image ? [image] : [];
@@ -807,6 +819,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
               >
                 {message.content}
               </ReactMarkdown>
+              {message.role === 'assistant' && !message.error && index > 0 && <button className="text-button save-response" onClick={() => onSaveResponse(message.content)}><Plus size={13}/>Save to content library</button>}
             </div>
           </div>
         ))}
@@ -830,7 +843,7 @@ function ChatStudio({ connectedZones, items, accessSecret, focus = false, initia
             {chatImages.map((image) => (
               <div key={image.id}>
                 <img src={image.dataUrl} alt={image.name} />
-                <button type="button" onClick={() => setChatImages((current) => current.filter((item) => item.id !== image.id))} aria-label={`Remove ${image.name}`}><X size={13} /></button>
+                <button type="button" onClick={() => setChatImages((current) => current.filter((item) => item.id !== image.id))} aria-label={`Remove ${image.name}`}><X weight="regular" size={13} /></button>
               </div>
             ))}
           </div>
@@ -919,7 +932,7 @@ export default function App() {
   const [activeModal, setActiveModal] = useState(null);
   const [search, setSearch] = useState("");
   const [syncState, setSyncState] = useState("local");
-  const [view, setView] = useState(() => localStorage.getItem(pageKey) || "today");
+  const [view, setView] = useState(() => localStorage.getItem(pageKey) || "ideas");
   const [studioMode, setStudioMode] = useState("create");
   const [studioPrompt, setStudioPrompt] = useState("");
 
@@ -997,7 +1010,7 @@ export default function App() {
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return items;
-    return items.filter((item) => `${item.title} ${item.content} ${item.tags?.join(" ")}`.toLowerCase().includes(query));
+    return items.filter((item) => `${item.title} ${item.content} ${item.topic || ""} ${item.hook || ""} ${item.draft || ""} ${item.platform || ""} ${item.tags?.join(" ")}`.toLowerCase().includes(query));
   }, [items, search]);
 
   function unlock(secret) {
@@ -1009,12 +1022,11 @@ export default function App() {
   if (authStatus !== "unlocked") return <LockScreen onUnlock={unlock} error={authError} checking={authStatus === "checking"} />;
 
   const navigation = [
-    { id: "today", label: "Today", description: "Choose your next action", icon: LayoutDashboard },
-    { id: "strategy", label: "Strategy", description: "Set your direction and goals", icon: Compass },
-    { id: "ideas", label: "Ideas", description: "Capture and evaluate thoughts", icon: Lightbulb },
-    { id: "create", label: "Create", description: "Turn an idea into a post", icon: PenLine },
-    { id: "results", label: "Results", description: "See what worked and why", icon: BarChart3 },
-    { id: "brain", label: "My Brain", description: "Store background knowledge", icon: Library },
+    { id: "ideas", label: "Content library", description: "Your ideas, hooks & drafts", icon: Library },
+    { id: "create", label: "Writing assistant", description: "Think, write & refine", icon: Sparkles },
+    { id: "results", label: "Posts & analytics", description: "Learn from what you publish", icon: BarChart3 },
+    { id: "brain", label: "My voice & context", description: "What makes it sound like you", icon: BrainCircuit },
+    { id: "strategy", label: "Content direction", description: "Your audience & focus", icon: Compass },
   ];
   const results = filteredItems.filter((item) => item.zone === "results");
   const ideas = filteredItems.filter((item) => item.zone === "inspiration" && !item.starter);
@@ -1054,7 +1066,7 @@ export default function App() {
 
       <header className="app-topbar">
         <div className="mobile-brand"><span><BrainCircuit size={17} /></span><strong>Content Brain</strong></div>
-        <label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your brain…" /></label>
+        <label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your content…" /></label>
         <div className={`sync-state sync-${syncState}`}>
           {syncState === "syncing" ? <LoaderCircle className="spin" size={13} /> : <span />}
           {syncState === "cloud" ? "Saved to cloud" : syncState === "syncing" ? "Saving" : "Saved locally"}
@@ -1109,12 +1121,7 @@ export default function App() {
           </div>
         </section>}
 
-        {view === "ideas" && <section className="workflow-page">
-          {renderPageHeader("Idea inbox", "Capture first. Decide later.", "Save rough thoughts, screenshots, hooks, captions, links, and voice notes—then decide what is worth developing.", <button className="button primary" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Plus size={16} />New idea</button>)}
-          <button className="idea-capture" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><span><ImageIcon size={23} /></span><div><strong>Paste, upload, dictate, or type anything</strong><small>Capture the thought now. You can organize and evaluate it later.</small></div><div className="capture-types"><span>Screenshot</span><span>Link</span><span>Text</span></div></button>
-          <div className="idea-toolbar"><strong>{ideas.length} saved {ideas.length === 1 ? "idea" : "ideas"}</strong><button className="text-button" type="button" onClick={() => openStudio("ideas", "Review my saved ideas and help me decide which one is most strategically useful to develop next.")}><Sparkles size={14} />Evaluate with AI</button></div>
-          <div className="idea-grid">{ideas.map((item) => <article className="idea-card" key={item.id}><div className="idea-card-top"><span>{item.type === "image" ? <ImageIcon size={14} /> : item.type === "link" ? <Link2 size={14} /> : <FileText size={14} />}{item.type}</span><button className="icon-button" type="button" onClick={() => setActiveModal({ zone: zones[3], item })} aria-label={`Edit ${item.title}`}><MoreHorizontal size={16} /></button></div>{item.image && <img src={item.image} alt="" />}<h2>{item.title}</h2><p>{item.content || "Open this idea to add what caught your attention."}</p>{item.takeaways?.length > 0 && <div className="pillar-pills">{item.takeaways.map((value) => <span key={value}>{value}</span>)}</div>}<footer><span>{item.tags?.[0] || "Unsorted idea"}</span><button type="button" onClick={() => openStudio("create", `Help me develop this saved idea into a post: ${item.title}.`)}>Develop <ArrowRight size={14} /></button></footer></article>)}{ideas.length === 0 && <button className="empty-state large" type="button" onClick={() => setActiveModal({ zone: zones[3] })}><Lightbulb size={28} /><strong>Your idea inbox is ready</strong><span>Add a rough thought, screenshot, hook, caption, or example you want to learn from.</span></button>}</div>
-        </section>}
+        {view === "ideas" && <ContentLibrary items={ideas} onAdd={() => setActiveModal({ zone: zones[3] })} onEdit={item => setActiveModal({ zone: zones[3], item })} onStudio={openStudio} onSave={persistItem}/>}
 
         {view === "create" && <section className="workflow-page create-page">
           {renderPageHeader("Guided studio", studioMode === "strategy" ? "Sharpen your content direction." : studioMode === "ideas" ? "Find and evaluate useful ideas." : studioMode === "review" ? "Work out what actually resonated." : "Turn one idea into a finished post.", "Use a guided conversation instead of staring at a blank page.")}
@@ -1131,12 +1138,13 @@ export default function App() {
               })}
               <button className="button secondary studio-add" type="button" onClick={() => { setView("brain"); setActiveModal({ zone: zones[0] }); }}><Plus size={15} />Add knowledge</button>
             </aside>
-            <ChatStudio focus connectedZones={connectedZones} items={items} accessSecret={accessSecret} mode={studioMode} initialPrompt={studioPrompt} />
+            <ChatStudio onSaveResponse={content => setActiveModal({zone: zones[3], item: { title: "", content: "", draft: content, status: "Draft" }})} focus connectedZones={connectedZones} items={items} accessSecret={accessSecret} mode={studioMode} initialPrompt={studioPrompt} />
           </div>
         </section>}
 
         {view === "results" && <section className="workflow-page">
           {renderPageHeader("Results", "Learn what resonates—not just what gets likes.", "Log published posts, meaningful reactions, and business outcomes so Content Brain can spot useful patterns.", <button className="button primary" type="button" onClick={() => setActiveModal({ result: null, kind: "result" })}><Plus size={16} />Add published post</button>)}
+          <PerformanceSummary items={results}/>
           <div className="results-guide"><div><span>1</span><p><strong>Publish</strong><small>Post on LinkedIn or Instagram.</small></p></div><ArrowRight size={15} /><div><span>2</span><p><strong>Wait about 7 days</strong><small>Give the post time to travel.</small></p></div><ArrowRight size={15} /><div><span>3</span><p><strong>Add a screenshot</strong><small>Record metrics and what you noticed.</small></p></div><ArrowRight size={15} /><div><span>4</span><p><strong>Review the pattern</strong><small>Choose one thing to repeat or test.</small></p></div></div>
           {results.length > 0 ? <div className="results-layout"><section className="surface results-list"><div className="surface-heading"><div><span className="section-kicker">Performance log</span><h2>Your published posts</h2><p>Compare posts only after giving them a similar amount of time.</p></div></div>{results.map((item) => <button className="result-row" type="button" key={item.id} onClick={() => setActiveModal({ result: item })}><span className={`platform-badge ${item.platform?.toLowerCase()}`}>{item.platform || "Post"}</span><span className="result-title"><strong>{item.title}</strong><small>{item.format || "Post"} · {item.pillar || "Uncategorized"}</small></span><span><b>{item.metrics?.reach || "—"}</b><small>Reach</small></span><span><b>{item.metrics?.comments || "—"}</b><small>Comments</small></span><span><b>{item.metrics?.saves || "—"}</b><small>Saves</small></span><span><b>{item.metrics?.enquiries || "—"}</b><small>Enquiries</small></span><ArrowRight size={15} /></button>)}</section><aside className="surface learning-panel"><span className="section-kicker">Review with AI</span><h2>Find the signal behind the numbers</h2><p>Ask Content Brain to compare your hooks, topics, formats, and qualitative reactions—then suggest one sensible next experiment.</p><button className="button soft" type="button" onClick={() => openStudio("review", "Review my logged post results. Identify the strongest useful pattern, mention the sample size, and recommend one next experiment.")}><Sparkles size={16} />Analyze my results</button></aside></div> : <button className="empty-state results-empty" type="button" onClick={() => setActiveModal({ result: null, kind: "result" })}><BarChart3 size={30} /><strong>Add your first published post</strong><span>Paste the link, record its metrics after about seven days, and note any meaningful conversations or enquiries.</span><em>Add published post <ArrowRight size={14} /></em></button>}
         </section>}
