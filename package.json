@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@netlify/blobs": "^10.0.10",
+    "@phosphor-icons/react": "^2.1.10",
     "@vitejs/plugin-react": "^5.0.2",
-    "lucide-react": "^0.542.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",
